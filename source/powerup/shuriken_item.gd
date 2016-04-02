@@ -1,7 +1,7 @@
 
 extends RigidBody2D
 
-signal on_shuriken_contact(player)
+signal on_shuriken_item_hit(player, item)
 
 func _ready():
 	get_node("timer").connect("timeout", self, "_on_timeout")
@@ -12,4 +12,4 @@ func _on_timeout():
 
 func _on_contact(body):
 	if body.get_name().begins_with("player"):
-		emit_signal("on_shuriken_contact", body)
+		emit_signal("on_shuriken_item_hit", body, self)

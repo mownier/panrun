@@ -9,42 +9,54 @@ const POWERUP = {
 	SHURIKEN = 4,
 	HEART = 5
 }
-const DIR = "res://source/powerup/models/"
+const POWERUP_SCENES = [
+	"speed.scn",
+	"shield.scn",
+	"lightning.scn",
+	"knife.scn",
+	"shuriken.scn",
+	"heart.scn"
+]
+const DIR = "res://source/powerup/triggers/"
 
 func _ready():
 	pass
 
 func create_speed():
-	var powerup = create_powerup("speed.gd")
-	powerup.type = POWERUP["SPEED"]
-	return powerup
+	return create_powerup(POWERUP["SPEED"])
 
 func create_shield():
-	var powerup = create_powerup("shield.gd")
-	powerup.type = POWERUP["SHIELD"]
-	return powerup
+	return create_powerup(POWERUP["SHIELD"])
 
 func create_lightning():
-	var powerup = create_powerup("lightning.gd")
-	powerup.type = POWERUP["LIGHTNING"]
-	return powerup
+	return create_powerup(POWERUP["LIGHTNING"])
 
 func create_knife():
-	var powerup = create_powerup("knife.gd")
-	powerup.type = POWERUP["KNIFE"]
-	return powerup
+	return create_powerup(POWERUP["KNIFE"])
 
 func create_shuriken():
-	var powerup = create_powerup("shuriken.gd")
-	powerup.type = POWERUP["SHURIKEN"]
-	return powerup
+	return create_powerup(POWERUP["SHURIKEN"])
 
 func create_heart():
-	var powerup = create_heart("heart.gd")
-	powerup.type = POWERUP["HEART"]
-	return powerup
+	return create_powerup(POWERUP["HEART"])
 
-func create_powerup(script):
+func create_powerup(type):
+	var script = _get_script(type)
 	var path = str(DIR, script)
 	var powerup = load(path).new()
+	powerup.type = type
 	return powerup
+
+func _get_script(type):
+	if type == POWERUP["SPEED"]:
+		return "speed.gd"
+	elif type == POWERUP["SHIELD"]:
+		return "shield.gd"
+	elif type == POWERUP["LIGHTNING"]:
+		return "lightning.gd"
+	elif type == POWERUP["KNIFE"]:
+		return "knife.gd"
+	elif type == POWERUP["SHURIKEN"]:
+		return "shuriken.gd"
+	elif type == POWERUP["HEART"]:
+		return "heart.gd"

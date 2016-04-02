@@ -7,7 +7,8 @@ signal did_collect(what, player)
 export(int, "Speed", "Shield", "Lightning", "Knife", "Shuriken", "Heart") var powerup = 0
 export var randomized = true
 
-const powerups = ["speed.scn", "shield.scn", "lightning.scn", "knife.scn", "shuriken.scn", "heart.scn"]
+onready var powerup_util = get_node("/root/globals").powerup_util
+onready var powerup_scenes = powerup_util.POWERUP_SCENES
 
 func _ready():
 	get_node("container").set_color(Color("00000000"))
@@ -26,13 +27,13 @@ func _display_powerup(index):
 	get_node("container").add_child(selected)
 
 func _select_powerup(index):
-	var path = str("res://source/powerup/", powerups[index])
+	var path = str("res://source/powerup/", powerup_scenes[index])
 	var instance = load(path).instance()
 	return instance
 
 func _get_index():
 	randomize()
-	var index = randi() % powerups.size()
+	var index = randi() % powerup_scenes.size()
 	return index
 
 func _did_collect(what, player):

@@ -2,19 +2,18 @@ tool
 
 extends Node2D
 
-const POWERUPS = ["speed.scn", "shield.scn", "lightning.scn", "knife.scn", "shuriken.scn", "heart.scn"]
-
-onready var powerup = get_node("hud/powerup")
-onready var powerup_container = powerup.get_node("container")
+onready var powerup_on_stack = get_node("hud/powerup")
+onready var powerup_container = get_node("hud/powerup/container")
 onready var player_indicator = get_node("hud2/player_indicator")
 onready var target_selector = get_node("target_selector")
 
 onready var globals = get_node("/root/globals")
+onready var powerup_util = globals.powerup_util
 
 var player_scene = preload("res://source/player/player.scn")
 
 func _ready():
-	var map_scene = load("res://source/map/map_2.scn")
+	var map_scene = load("res://source/map/map_1.scn")
 	var map = map_scene.instance()
 	map.connect("did_collect", self, "_did_collect_powerup")
 	add_child(map)
@@ -29,11 +28,6 @@ func _ready():
 	powerup_container.set_color(Color("ffffff"))
 	
 	target_selector.connect("on_target_select", self, "_on_target_select")
-	
-	# TEST: Powerup creations
-	var speed = globals.powerup_util.create_speed()
-	add_child(speed)
-	speed.activate()
 
 func _create_players(count):
 	for i in range(count):
@@ -79,9 +73,8 @@ func _create_hud_players(players):
 
 func _did_collect_powerup(type, player):
 	if player.is_main_player() and not _has_powerup():
-		powerup.powerup = type
-		powerup.spawn()
-		player.powerup_type = type
+		powerup_on_stack.powerup = type
+		powerup_on_stack.spawn()
 		
 		if type == 2:
 			player_indicator.set_hidden(false)
@@ -91,41 +84,48 @@ func _did_collect_powerup(type, player):
 			player_indicator.set_hidden(false)
 			var player_count = _get_players().size()
 			_start_targeting(player_count)
+		
+		var player_powerup = powerup_util.create_powerup(type)
+		if player_powerup != null:
+			player.add_powerup(player_powerup)
 
 func _did_consume_powerup(player, type):
 	powerup_container.get_child(0).queue_free()
 
-func _select_lightning_target():
+func _select_lightning_target(lightning):
 	target_selector.cancel_selecting()
 	var target = target_selector.selected_target
 	var index = target - 1
 	if index >= 0:
 		var enemy = _get_enemies()[index]
-		enemy.on_lightning_strike()
+		enemy.on_lightning_strike(lightning)
 
-func _select_knife_target():
+func _select_knife_target(knife):
 	target_selector.cancel_selecting()
 	var target = target_selector.selected_target
 	var index = target - 1
 	if index >= 0:
 		var player = _get_players()[index]
-		player.on_knife_stab()
+		player.on_knife_stab(knife)
 
-func _will_throw_shuriken(player, shuriken):
-	get_tree().call_group(0, "players", "exempt_from_shuriken_collision", shuriken)
-	shuriken.connect("on_shuriken_contact", self, "_on_shuriken_contact")
-	add_child(shuriken)
+func _will_throw_shuriken(player, item):
+	get_tree().call_group(0, "players", "exempt_from_shuriken_collision", item)
+	item.connect("on_shuriken_item_hit", self, "_on_shuriken_item_hit")
+	add_child(item)
 
-func _on_shuriken_contact(player):
-	player.on_shuriken_hit()
+func _on_shuriken_item_hit(player, item):
+	var shuriken = powerup_util.create_shuriken()
+	player.on_shuriken_hit(shuriken)
 
 func _will_cast_lightning(player):
 	player_indicator.set_hidden(true)
-	_select_lightning_target()
+	var lightning = powerup_util.create_lightning()
+	_select_lightning_target(lightning)
 
 func _will_stab_by_knife(player):
 	player_indicator.set_hidden(true)
-	_select_knife_target()
+	var knife = powerup_util.create_knife()
+	_select_knife_target(knife)
 
 func _has_powerup():
 	return powerup_container.get_child_count() > 0
@@ -134,9 +134,9 @@ func _on_target_select(target):
 	var index = target - 1
 	if index >= 0:
 		var players
-		if powerup.powerup == 2:
+		if powerup_on_stack.powerup == 2:
 			players = _get_enemies("hud_enemies")
-		elif powerup.powerup == 3:
+		elif powerup_on_stack.powerup == 3:
 			players = _get_players("hud_players")
 		
 		if (players != null and 
