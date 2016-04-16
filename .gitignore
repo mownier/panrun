@@ -1,3 +1,3 @@
 .DS_Store
 *.sh
-source/cert/
+source/cert/*.crt
