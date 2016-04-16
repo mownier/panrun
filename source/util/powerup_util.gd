@@ -17,6 +17,14 @@ const POWERUP_SCENES = [
 	"shuriken.scn",
 	"heart.scn"
 ]
+const POWERUP_TYPE = [
+	"speed",
+	"shield",
+	"lightning",
+	"knife",
+	"shuriken",
+	"heart"
+]
 const DIR = "res://source/powerup/triggers/"
 
 func _ready():

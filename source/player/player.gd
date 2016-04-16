@@ -6,20 +6,30 @@ signal will_throw_shuriken(player, item)
 signal will_cast_lightning(player)
 signal will_stab_by_knife(player)
 
-const GRAVITY = 1000
-const WALK_SPEED_MIN = 10
-const WALK_SPEED_MAX = 500
+signal on_finish_jump(player)
+signal on_jump(player)
+signal on_stop(player)
+signal on_move_right(player)
+signal on_move_left(player)
 
-const STOP_FORCE = 1400
-const WALK_FORCE = 600
-const JUMP_SPEED = 700
-const AIRBORNE_TIME_MAX = 0.1
-const FLOOR_ANGLE_TOLERANCE = 30
+const ACTION_MOVE_LEFT = 0
+const ACTION_MOVE_RIGHT = 1
+const ACTION_STOP = 3
+
+const GRAVITY = 4000
+const WALK_SPEED_MIN = 16
+const WALK_SPEED_MAX = 720
+
+const STOP_FORCE = 1200
+const WALK_FORCE = 1200
+const JUMP_SPEED = 1200
+const AIRBORNE_TIME_MAX = 0.25
+const FLOOR_ANGLE_TOLERANCE = 36
 
 const SLIDE_TOP_MIN_DISTANCE = 1
 const SLIDE_TOP_VELOCITY = 1
 
-const GHOST_OPACITY = 0.5
+const GHOST_OPACITY = 0.48
 const GHOST_DURATION = 4 # 4 seconds
 const POWERUP_LIMIT = 1
 
@@ -27,6 +37,7 @@ var velocity = Vector2()
 var jumping = false
 var prev_jump_pressed = false
 var airborne_time = 0
+var should_jump = false
 
 var powerup_speed = 0
 var move_direction = 1 # 0 if left, 1 if right
@@ -35,6 +46,10 @@ var shuriken_hit = 0 # 0 seconds
 var ghost_duration = 0 # 0 seconds
 var lightning_shock = 0 # Lightning shock in seconds
 var knife_stab = 0 # Knife stab in seconds
+var main_player = false
+
+var action = ACTION_STOP
+var prev_action = ACTION_STOP
 
 var powerups = []
 
@@ -65,9 +80,33 @@ func _consume_powerup(index = 0):
 	emit_signal("did_consume_powerup", self, type)
 	remove_powerup(index)
 
+func use_powerup(powerup):
+	add_powerup(powerup)
+	powerup_timer.stop()
+	_on_powerup_timeout()
+	_consume_powerup()
+
 func is_main_player():
-	return get_name() == "player1"
-	
+	return main_player
+
+func set_main_player(what):
+	main_player = what
+
+func set_action(what):
+	action = what
+
+func is_moving_left():
+	return action == ACTION_MOVE_LEFT
+
+func is_moving_right():
+	return action == ACTION_MOVE_RIGHT
+
+func should_jump(should=null):
+	if should == null:
+		return should_jump
+	else:
+		should_jump = should
+
 func has_powerups():
 	return powerups.size() > 0
 
@@ -120,28 +159,34 @@ func deactivate_heart():
 	get_node("heart").set_hidden(true)
 
 func on_shuriken_hit(shuriken):
-	if not has_immunity() and not has_shuriken_immunity():
+	var damaged = false
+	if has_active_heart():
+		deactivate_heart()
+	elif not has_immunity() and not has_shuriken_immunity():
 		activate_ghost()
 		shuriken.hit(self)
-	else:
-		if has_active_heart():
-			deactivate_heart()
+		damaged = true
+	return damaged
 
 func on_lightning_strike(lightning):
-	if not has_immunity() and not has_acquired_lightning_shock():
+	var damaged = false
+	if has_active_heart():
+		deactivate_heart()
+	elif not has_immunity() and not has_acquired_lightning_shock():
 		activate_ghost()
 		lightning.shock(self)
-	else:
-		if has_active_heart():
-			deactivate_heart()
+		damaged = true
+	return damaged
 
 func on_knife_stab(knife):
-	if not has_immunity() and not has_stabbed_with_knife():
+	var damaged = false
+	if has_active_heart():
+		deactivate_heart()
+	elif not has_immunity() and not has_stabbed_with_knife():
 		activate_ghost()
 		knife.stab(self)
-	else:
-		if has_active_heart():
-			deactivate_heart()
+		damaged = true
+	return damaged
 
 func brute_force_stop():
 	return (has_acquired_lightning_shock() or 
@@ -173,32 +218,42 @@ func _on_ghost_timeout():
 func _motion_2(delta):
 	var force = Vector2(0, GRAVITY)
 	
-	var did_press_left = not brute_force_stop() and is_main_player() and Input.is_action_pressed("ui_left")
-	var did_press_right = not brute_force_stop() and is_main_player() and Input.is_action_pressed("ui_right")
-	var did_press_jump = not brute_force_stop() and is_main_player() and Input.is_action_pressed("jump") 
+	var did_press_left = is_moving_left() or (not brute_force_stop() and is_main_player() and Input.is_action_pressed("ui_left"))
+	var did_press_right = is_moving_right() or (not brute_force_stop() and is_main_player() and Input.is_action_pressed("ui_right"))
+	var did_press_jump = should_jump() or (not brute_force_stop() and is_main_player() and Input.is_action_pressed("jump"))
 	
 	var stop = true
 	
 	var speed_min = max(WALK_SPEED_MIN, powerup_speed)
 	var speed_max = max(WALK_SPEED_MAX, powerup_speed)
 	
-	if (did_press_left):
+	if did_press_left:
 		if (velocity.x < speed_min and velocity.x > -speed_max):
 			force.x -= WALK_FORCE
 			stop = false
 			move_direction = 0
-	elif (did_press_right):
+			if prev_action != ACTION_MOVE_LEFT:
+				emit_signal("on_move_left", self)
+			prev_action = ACTION_MOVE_LEFT
+	elif did_press_right:
 		if (velocity.x > -speed_min and velocity.x < speed_max):
 			force.x += WALK_FORCE
 			stop = false
 			move_direction = 1
+			if prev_action != ACTION_MOVE_RIGHT:
+				emit_signal("on_move_right", self)
+			prev_action = ACTION_MOVE_RIGHT
+	elif not did_press_jump:
+		if prev_action != ACTION_STOP:
+			emit_signal("on_stop", self)
+		prev_action = ACTION_STOP
 	
 	if (stop):
 		var walk_direction = sign(velocity.x)
 		var walk_distance = abs(velocity.x)
 		walk_distance = max(0, walk_distance - (STOP_FORCE * delta))
 		velocity.x = walk_direction * walk_distance
-	
+		
 	velocity += force * delta
 	var motion = velocity * delta
 	motion = move(motion)
@@ -223,10 +278,13 @@ func _motion_2(delta):
 	
 	if (jumping and velocity.y > 0):
 		jumping = false
+		should_jump = false
+		emit_signal("on_finish_jump", self)
 	
 	if (airborne_time < AIRBORNE_TIME_MAX and did_press_jump and not prev_jump_pressed and not jumping):
 		velocity.y = -JUMP_SPEED
 		jumping = true
+		emit_signal("on_jump", self)
 	
 	airborne_time += delta
 	prev_jump_pressed = did_press_jump

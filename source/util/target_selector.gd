@@ -19,10 +19,11 @@ func _process(delta):
 			selected_target = target
 
 func start_selecting(count):
-	is_selecting = true
-	selected_target = -1
-	set_wait_time(count)
-	start()
+	if count > 0:
+		is_selecting = true
+		selected_target = -1
+		set_wait_time(count)
+		start()
 
 func cancel_selecting():
 	is_selecting = false
